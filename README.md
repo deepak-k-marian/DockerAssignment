@@ -17,7 +17,7 @@ To download, configure, build, and deploy this entire stack with a single comman
 
 ```bash
 # 1. Clone the project repository framework from source systems
-git clone <your-github-repository-url-here>
+git clone <github-url-of-this-repo-here>
 cd DockerAssignment
 
 # 2. Grant permissions and execute the master automation controller script
