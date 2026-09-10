@@ -1,0 +1,54 @@
+name: FastAPI Docker CI
+
+# Trigger this workflow on every push or pull request to the main branch
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    # Step 1: Clone your repository onto the GitHub runner machine
+    - name: Checkout Source Code
+      uses: actions/checkout@v4
+
+    # Step 2: Build your custom Alpine-based Docker image
+    - name: Build Docker Image
+      run: |
+        docker build -t fastapi-email-app .
+
+    # Step 3: Run the container in detached background mode
+    # Note: We pass dummy environment secrets so your Pydantic app configurations don't crash
+    - name: Launch Application Container
+      run: |
+        docker run -d \
+          -p 8000:8000 \
+          -e SENDER_EMAIL="test@example.com" \
+          -e SENDER_PASSWORD="dummypassword1234" \
+          --name test-container \
+          fastapi-email-app
+
+    # Step 4: Give FastAPI a few seconds to initialize and boot inside the container
+    - name: Wait for Server Initialization
+      run: sleep 5
+
+    # Step 5: Test the container health by pinging the homepage endpoint
+    - name: Verify API Response (Health Check)
+      run: |
+        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/)
+        echo "Server responded with HTTP Status Code: $RESPONSE"
+        if [ "$RESPONSE" -ne 200 ]; then
+          echo "❌ Error: API failed to respond with Status 200"
+          exit 1
+        fi
+        echo "✅ Success: FastAPI Container is fully functional!"
+
+    # Step 6: Print out container runtime logs if anything fails (For debugging)
+    - name: Inspect Container Logs on Failure
+      if: failure()
+      run: |
+        docker logs test-container
