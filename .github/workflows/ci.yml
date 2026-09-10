@@ -32,22 +32,30 @@ jobs:
           --name test-container \
           fastapi-email-app
 
-    # Step 4: Give FastAPI a few seconds to initialize and boot inside the container
-    - name: Wait for Server Initialization
-      run: sleep 5
-
-    # Step 5: Test the container health by pinging the homepage endpoint
+    # Replace step 4 and 5 in sinle step
     - name: Verify API Response (Health Check)
       run: |
-        RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/)
-        echo "Server responded with HTTP Status Code: $RESPONSE"
-        if [ "$RESPONSE" -ne 200 ]; then
-          echo "❌ Error: API failed to respond with Status 200"
-          exit 1
-        fi
-        echo "✅ Success: FastAPI Container is fully functional!"
+        echo "Waiting for FastAPI container to wake up..."
+        
+        # Loop up to 6 times (30 seconds total) checking for connectivity
+        for i in {1..6}; do
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/ || echo "000")
+          echo "Attempt $i: Server responded with status code $RESPONSE"
+          
+          if [ "$RESPONSE" -eq 200 ]; then
+            echo "✅ Success: FastAPI Container is fully functional!"
+            exit 0
+          fi
+          
+          echo "Server not ready yet. Retrying in 5 seconds..."
+          sleep 5
+        done
 
-    # Step 6: Print out container runtime logs if anything fails (For debugging)
+        echo "❌ Error: API failed to respond with Status 200 within 30 seconds"
+        exit 1
+
+
+    # Step 5: Print out container runtime logs if anything fails (For debugging)
     - name: Inspect Container Logs on Failure
       if: failure()
       run: |
