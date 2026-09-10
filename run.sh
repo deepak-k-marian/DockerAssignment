@@ -14,11 +14,48 @@ echo -e "${CYAN}==================================================${NC}"
 echo -e "${CYAN}🚀 Automated Setup: FastAPI Email Container App 🚀${NC}"
 echo -e "${CYAN}==================================================${NC}"
 
-# 1. Dependency Validation Check
+# 1. Prerequisites Auto-Installer Block
+echo -e "${CYAN}🔍 Checking application engine prerequisites...${NC}"
+
 if ! command -v docker &> /dev/null; then
-    echo -e "${RED}❌ Error: Docker is not installed on this system.${NC}"
-    echo -e "${YELLOW}Please install Docker and try running this script again.${NC}"
-    exit 1
+    echo -e "${YELLOW}⚠️ Notice: Docker is not installed. Initiating automatic setup...${NC}"
+    
+    # Update localized apt lists and grab curl if it's missing from the host machine
+    if command -v apt-get &> /dev/null; then
+        echo -e "${CYAN}📦 Installing curl system packages...${NC}"
+        sudo apt-get update -y && sudo apt-get install -y curl
+        
+        # Download and execute the official Docker convenience script natively
+        echo -e "${CYAN}🐳 Downloading official Docker Engine installer...${NC}"
+        curl -fsSL https://get.docker.com | sh
+        
+        # Ensure Docker service is fully active and enabled on boot
+        sudo systemctl enable --now docker
+        
+        # Add the current non-root user to the docker security scope group
+        sudo usermod -aG docker $USER
+        
+        echo -e "${GREEN}✅ Docker Engine and plugins successfully deployed!${NC}"
+        echo -e "${YELLOW}⚠️ Note: You may need to refresh your shell session (run: 'newgrp docker') if permissions block non-sudo use.${NC}"
+    else
+        echo -e "${RED}❌ Error: Unsupported OS distribution package manager.${NC}"
+        echo -e "${YELLOW}Please install Docker Engine manually via https://docker.com{NC}"
+        exit 1
+    fi
+else
+    echo -e "${GREEN}✅ Docker core binaries detected on the host system.${NC}"
+fi
+
+# Validate that the Compose plugin structure is also operational
+if ! docker compose version &> /dev/null; then
+    echo -e "${YELLOW}⚠️ Notice: Docker Compose CLI plugin missing. Attempting standalone resolution...${NC}"
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get update -y && sudo apt-get install -y docker-compose-plugin
+        echo -e "${GREEN}✅ Docker Compose plugin resolved!${NC}"
+    else
+        echo -e "${RED}❌ Error: Docker Compose missing. Install docker-compose-plugin before running.${NC}"
+        exit 1
+    fi
 fi
 
 # 2. Environment Configuration Check
@@ -48,11 +85,20 @@ fi
 
 # 3. Cache & Lifecycle Process Maintenance Cleanup
 echo -e "${CYAN}🧹 Sweeping workspace environment states...${NC}"
-docker compose down --remove-orphans 2>/dev/null || true
+# Use sudo fallback gracefully if user group configurations haven't reloaded yet
+if docker compose down --remove-orphans 2>/dev/null; then
+    docker compose down --remove-orphans
+else
+    sudo docker compose down --remove-orphans
+fi
 
 # 4. Compilation & Deployment
 echo -e "${CYAN}⚙️ Building container layers and establishing network scopes...${NC}"
-docker compose up -d --build
+if docker compose up -d --build; then
+    docker compose up -d --build
+else
+    sudo docker compose up -d --build
+fi
 
 echo -e "${CYAN}==================================================${NC}"
 echo -e "${GREEN}🎉 Success! Your container deployment is live!${NC}"
