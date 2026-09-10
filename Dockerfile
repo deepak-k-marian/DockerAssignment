@@ -35,6 +35,10 @@ RUN adduser -D appuser \
     && chown -R appuser:appuser /workspace
 USER appuser
 
+# Switch the working directory into the app package so relative
+# paths (static/templates) in main.py resolve correctly at runtime
+WORKDIR /workspace/app
+
 # Expose the target network access interface port
 EXPOSE 8000
 
@@ -42,4 +46,4 @@ EXPOSE 8000
 # 4. Process Launch
 # ==========================================
 # Execute the production uvicorn service bound to all available network host systems
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
